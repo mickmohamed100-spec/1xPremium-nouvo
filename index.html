@@ -12,7 +12,14 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            onAuthStateChanged, 
+            signOut,
+            sendPasswordResetEmail
+        } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
         
         // Your web app's Firebase configuration
@@ -38,6 +45,7 @@
             signInWithEmailAndPassword,
             onAuthStateChanged,
             signOut,
+            sendPasswordResetEmail,
             doc,
             setDoc,
             getDoc,
@@ -284,6 +292,8 @@
             justify-content: space-between;
             align-items: center;
             margin-top: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .switch-auth-mode {
@@ -1514,6 +1524,116 @@
             color: #e74c3c;
         }
 
+        /* Popup de réinitialisation de mot de passe */
+        .reset-password-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .reset-password-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid #e0e0e0;
+            animation: slideUp 0.5s ease;
+            color: #333;
+        }
+
+        .reset-password-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+
+        .reset-password-header h2 {
+            color: var(--primary-blue);
+            font-size: 1.8rem;
+        }
+
+        .close-reset-password {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--dark-gray);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-reset-password:hover {
+            color: var(--primary-blue);
+            transform: scale(1.1);
+        }
+
+        .reset-password-body {
+            margin-bottom: 25px;
+        }
+
+        .reset-password-body p {
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #424242;
+        }
+
+        .btn-reset-password {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #303f9f 100%);
+            color: white;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-reset-password:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(26, 35, 126, 0.4);
+        }
+
+        .btn-reset-password:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .success-message {
+            color: #4caf50;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #e74c3c;
+        }
+
         @keyframes shake {
             0%, 100% {transform: translateX(0);}
             10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);}
@@ -1663,6 +1783,11 @@
             .profile-edit-form .form-row {
                 grid-template-columns: 1fr;
             }
+            
+            .login-options {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -1749,6 +1874,10 @@
                 <div class="login-options">
                     <button type="button" id="switch-auth-mode" class="switch-auth-mode">
                         Créer un nouveau compte
+                    </button>
+                    <!-- AJOUT: Lien mot de passe oublié -->
+                    <button type="button" id="btn-forgot-password" class="switch-auth-mode">
+                        Mot de passe oublié ?
                     </button>
                 </div>
             </form>
@@ -2626,6 +2755,31 @@
         </div>
     </div>
 
+    <!-- Popup de réinitialisation de mot de passe -->
+    <div id="reset-password-popup" class="reset-password-popup">
+        <div class="reset-password-content">
+            <div class="reset-password-header">
+                <h2>Réinitialiser le mot de passe</h2>
+                <button class="close-reset-password">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="reset-password-body">
+                <p>Entrez votre adresse email pour recevoir un lien de réinitialisation de mot de passe.</p>
+                <div class="form-group">
+                    <label for="reset-email">Adresse Email</label>
+                    <input type="email" id="reset-email" placeholder="Votre adresse email" required>
+                </div>
+            </div>
+            <div class="reset-password-footer">
+                <button id="btn-send-reset-email" class="btn-reset-password">
+                    <i class="fas fa-paper-plane"></i> Envoyer le lien de réinitialisation
+                </button>
+                <div id="reset-message" style="margin-top: 15px; display: none;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Configuration EmailJS avec vos Template IDs
         const EMAILJS_CONFIG = {
@@ -2652,6 +2806,7 @@
         const waitingEmailPopup = document.getElementById('waiting-email-popup');
         const termsPopup = document.getElementById('terms-popup');
         const errorPopup = document.getElementById('error-popup');
+        const resetPasswordPopup = document.getElementById('reset-password-popup');
         
         // Boutons
         const btnAccept = document.getElementById('btn-accept');
@@ -2671,6 +2826,9 @@
         const btnCloseError = document.getElementById('btn-close-error');
         const btnLogout = document.getElementById('btn-logout');
         const switchAuthMode = document.getElementById('switch-auth-mode');
+        const btnForgotPassword = document.getElementById('btn-forgot-password');
+        const btnSendResetEmail = document.getElementById('btn-send-reset-email');
+        const closeResetPassword = document.querySelector('.close-reset-password');
         
         // Éléments du profil
         const btnEditProfile = document.getElementById('btn-edit-profile');
@@ -2707,6 +2865,8 @@
         const confirmPasswordGroup = document.getElementById('confirm-password-group');
         const emailLabel = document.getElementById('email-label');
         const errorMessage = document.getElementById('error-message');
+        const resetEmailInput = document.getElementById('reset-email');
+        const resetMessage = document.getElementById('reset-message');
         
         // Variables globales
         let selectedPaymentMethod = null;
@@ -2972,6 +3132,22 @@
             };
             
             return countries[countryCode] || countryCode;
+        }
+
+        // Fonction pour afficher les messages de réinitialisation
+        function showResetMessage(message, type) {
+            resetMessage.textContent = message;
+            resetMessage.className = type + '-message';
+            resetMessage.style.display = 'block';
+            
+            // Faire défiler jusqu'au message
+            resetMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Fonction de validation d'email
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
         }
 
         // Événements
@@ -3473,6 +3649,82 @@
             dashboard.style.display = 'block';
         });
 
+        // GESTION DE LA RÉINITIALISATION DE MOT DE PASSE
+
+        // Ouvrir le popup de réinitialisation
+        btnForgotPassword.addEventListener('click', () => {
+            resetPasswordPopup.style.display = 'flex';
+            resetEmailInput.value = '';
+            resetMessage.style.display = 'none';
+        });
+
+        // Fermer le popup de réinitialisation
+        closeResetPassword.addEventListener('click', () => {
+            resetPasswordPopup.style.display = 'none';
+        });
+
+        // Fermer en cliquant en dehors
+        resetPasswordPopup.addEventListener('click', (e) => {
+            if (e.target === resetPasswordPopup) {
+                resetPasswordPopup.style.display = 'none';
+            }
+        });
+
+        // Envoyer l'email de réinitialisation
+        btnSendResetEmail.addEventListener('click', async () => {
+            const email = resetEmailInput.value.trim();
+            
+            if (!email) {
+                showResetMessage('Veuillez entrer votre adresse email.', 'error');
+                return;
+            }
+            
+            if (!validateEmail(email)) {
+                showResetMessage('Veuillez entrer une adresse email valide.', 'error');
+                return;
+            }
+            
+            try {
+                // Désactiver le bouton pendant l'envoi
+                btnSendResetEmail.disabled = true;
+                btnSendResetEmail.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi en cours...';
+                
+                const auth = window.firebaseAuth;
+                const { sendPasswordResetEmail } = window.firebaseFunctions;
+                
+                await sendPasswordResetEmail(auth, email);
+                
+                showResetMessage('✅ Un email de réinitialisation a été envoyé à ' + email + '. Vérifiez votre boîte de réception.', 'success');
+                resetEmailInput.value = '';
+                
+            } catch (error) {
+                console.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', error);
+                
+                let errorMessage = 'Une erreur est survenue lors de l\'envoi de l\'email.';
+                
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Aucun compte trouvé avec cette adresse email.';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Adresse email invalide.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = 'Trop de tentatives. Veuillez réessayer plus tard.';
+                }
+                
+                showResetMessage(errorMessage, 'error');
+            } finally {
+                // Réactiver le bouton
+                btnSendResetEmail.disabled = false;
+                btnSendResetEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer le lien de réinitialisation';
+            }
+        });
+
+        // Permettre la soumission avec la touche Entrée
+        resetEmailInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                btnSendResetEmail.click();
+            }
+        });
+
         // Initialisation du graphique des cryptomonnaies
         function initializeChart() {
             const ctx = document.getElementById('cryptoChart').getContext('2d');
@@ -3553,6 +3805,7 @@
             console.log("📨 Templates configurés:");
             console.log("   - Activation:", EMAILJS_CONFIG.TEMPLATE_ACTIVATION);
             console.log("   - Dépôt:", EMAILJS_CONFIG.TEMPLATE_DEPOSIT);
+            console.log("🔑 Système de réinitialisation de mot de passe activé");
             
             // Configurer l'écouteur d'authentification
             setTimeout(() => {
@@ -3566,4 +3819,4 @@
         });
     </script>
 </body>
-</html>
+    </html>
